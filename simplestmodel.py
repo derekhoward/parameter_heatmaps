@@ -8,6 +8,8 @@ Created on Tue Sep  8 11:16:42 2015
 import numpy as np
 import matplotlib.pyplot as plt
 import neuron
+import pandas as pd
+import seaborn as sns
 
 def make_compartment(length=25, diameter=25, nseg=1, name="soma"):
   """
@@ -113,24 +115,57 @@ cell.set_conductances(soma_LT=0.01) #0.002
 """
 cell.set_conductances(soma_NaCh=0.05) #
 cell.set_conductances(soma_nap=0) #
-cell.set_conductances(soma_HT=0.015) #0.015
+#cell.set_conductances(soma_HT=0.015) #0.015
 cell.set_conductances(soma_LT=0.002) #0.002
-sim=Simulation(cell)
-sim.go()  
 
 import efel
-time, voltage= sim.get_recording()
-trace = {}
-trace['T'] = time
-trace['V'] = voltage
-trace['stim_start'] = [5]
-trace['stim_end'] = [105]
-traces = [trace]
 
-features = efel.getFeatureValues(traces, ["AP1_width", "Spikecount"])
-#voltage_base = features[0]["voltage_base"][0]
-first_width = features[0]["AP1_width"][0]
-spikecount = features[0]["Spikecount"][0]
+ht_range = np.arange(0.005, 0.03, 0.005)
+#nap_range = np.arange(0.0005, 0.001, 0.0005)
+nach_range = np.arange(0.04, 0.07, 0.01)
 
+first_width = []
+spikecount = []
+for ht_conductance in ht_range:
+    temp_width = []
+    temp_spikecount= []
+    cell.set_conductances(soma_HT=ht_conductance)
+    print 'outerloop'
+    
+    for nap_conductance in nach_range:
+        cell.set_conductances(soma_NaCh=nap_conductance)
+        sim=Simulation(cell)
+        sim.go()  
+    
+        time, voltage= sim.get_recording()
+        trace = {}
+        trace['T'] = time
+        trace['V'] = voltage
+        trace['stim_start'] = [5]
+        trace['stim_end'] = [105]
+        traces = [trace]
+        features = efel.getFeatureValues(traces, ["AP1_width", "Spikecount"])
+        #voltage_base = features[0]["voltage_base"][0]
+        #first_width = first_width.append(features[0]["AP1_width"][0])
+        #spikecount = spikecount.append(features[0]["Spikecount"][0])
+        temp_width.append(features[0]["AP1_width"][0])
+        temp_spikecount.append(features[0]["Spikecount"][0])
+        
+        print 'innerloop'
+        print(features)
+        print temp_width
+        sim.show()
+    first_width.append(temp_width)
+    spikecount.append(temp_spikecount)
+    
 
-sim.show()
+df1=pd.DataFrame(first_width)
+df2=pd.DataFrame(spikecount)
+
+df1.index = ht_range
+df1.index.name = 'HT K+'
+df1.columns = nach_range
+df1.columns.amne = 'Transient Na+'
+
+sns.heatmap(df1, annot=True)
+
